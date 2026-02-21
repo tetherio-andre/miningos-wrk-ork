@@ -12,13 +12,8 @@ This repository includes several security-focused workflows to ensure code quali
 - Use [GitHub secret scanning](https://docs.github.com/en/code-security/concepts/secret-security/about-secret-scanning) (repository Security tab).
 - Scans entire Git history, branches, issues, and PRs for exposed credentials; alerts appear on the Security tab.
 
-## 3. CodeQL Analysis (codeql-analysis.yml)
-- Runs nightly at 2 AM UTC
-- Analyzes JavaScript code for:
-  - Security vulnerabilities
-  - Code quality issues
-  - Logic bugs
-- Results appear in GitHub Security tab
+## 3. CodeQL (optional, not in default setup)
+CodeQL workflow files exist in `workflows/` for reference but are not deployed by the setup scripts. To use, copy `codeql-analysis.yml` into a repo’s `.github/workflows/` manually.
 
 ## Setup Required
 
