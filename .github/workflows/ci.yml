@@ -1,0 +1,186 @@
+name: PR - Test & Validate (Local)
+
+# This workflow uses local composite actions stored in .github/actions/
+# Simplified for PUBLIC repositories - no PAT_TOKEN/NPM_TOKEN needed for dependencies
+
+on:
+  push:
+    branches: [main, staging, dev, develop]
+  pull_request_target:
+    branches: [main, staging, dev, develop]
+    types: [opened, reopened, synchronize]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  setup:
+    name: Setup Dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      cache-key: ${{ steps.setup-node.outputs.cache-key }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: true
+          ref: ${{ github.event.pull_request.number && format('refs/pull/{0}/head', github.event.pull_request.number) || github.ref }}
+
+      - name: Setup Node.js with cache
+        id: setup-node
+        uses: ./.github/actions/node-setup-cache
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: setup
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: true
+          ref: ${{ github.event.pull_request.number && format('refs/pull/{0}/head', github.event.pull_request.number) || github.ref }}
+
+      - name: Restore Node.js and Cache
+        uses: ./.github/actions/node-restore-cache
+        with:
+          cache-key: ${{ needs.setup.outputs.cache-key }}
+
+      - name: Run linting
+        continue-on-error: true
+        run: |
+          echo "Running linting..."
+          npm run lint --if-present || echo "::warning::Linting failed but continuing workflow"
+
+  git-secrets:
+    name: Git Secrets Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.number && format('refs/pull/{0}/head', github.event.pull_request.number) || github.ref }}
+
+      - name: Run Git Secrets Scan
+        uses: ./.github/actions/git-secrets
+        continue-on-error: true
+
+  test-and-sonarqube:
+    name: Test Coverage & SonarQube Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: setup
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.number && format('refs/pull/{0}/head', github.event.pull_request.number) || github.ref }}
+
+      - name: Restore Node.js and Cache
+        uses: ./.github/actions/node-restore-cache
+        with:
+          cache-key: ${{ needs.setup.outputs.cache-key }}
+
+      - name: Setup project configuration
+        run: |
+          echo "Setting up project configuration..."
+          if [ -f ./setup-config.sh ]; then
+            chmod +x ./setup-config.sh
+            ./setup-config.sh
+          fi
+
+      - name: Run tests with coverage
+        continue-on-error: true
+        run: |
+          echo "Running tests with coverage..."
+          npm run test:coverage --if-present || npm test --if-present || echo "::warning::Tests failed but continuing workflow"
+
+      - name: Tailscale
+        id: tailscale
+        if: github.event_name == 'pull_request_target' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci-sast
+          version: latest
+          ping: dev-sonarcube-0.tail8a2a3f.ts.net
+
+      - name: Generate ESLint JSON report
+        if: steps.tailscale.outcome == 'success'
+        continue-on-error: true
+        run: |
+          if [ -f eslint.config.cjs ]; then
+            npx eslint . --format json --output-file eslint-report.json
+          fi
+
+      - name: Prepare SonarQube Configuration
+        if: steps.tailscale.outcome == 'success'
+        run: |
+          echo "Creating sonar-project.properties..."
+
+          # Base configuration
+          cat > sonar-project.properties << 'SONAR_EOF'
+          sonar.projectKey=${{ github.event.repository.name }}
+          sonar.projectName=${{ github.event.repository.name }}
+          sonar.projectVersion=${{ github.sha }}
+          sonar.sources=.
+          sonar.language=js
+          sonar.sourceEncoding=UTF-8
+          sonar.javascript.lcov.reportPaths=coverage/lcov.info
+          sonar.javascript.node.maxspace=4096
+          sonar.javascript.environments=node
+          sonar.qualitygate.wait=true
+          sonar.test.inclusions=**/*.test.js,**/*.spec.js
+          SONAR_EOF
+
+          # Add ESLint report if it exists
+          if [ -f eslint-report.json ]; then
+            echo "sonar.eslint.reportPaths=eslint-report.json" >> sonar-project.properties
+          fi
+
+          # Base exclusions
+          BASE_EXCLUSIONS="**/node_modules/**,**/coverage/**,**/dist/**,**/build/**,.github/**,**/*.test.js,**/*.spec.js,**/*.json,**/*.md,**/*.yml,**/*.yaml"
+
+          # Add tests configuration if folder exists
+          if [ -d "tests" ]; then
+            echo "Tests folder found - including test configuration"
+            echo "sonar.tests=tests" >> sonar-project.properties
+            echo "sonar.exclusions=${BASE_EXCLUSIONS},**/tests/**" >> sonar-project.properties
+            echo "sonar.cpd.exclusions=**/tests/**,**/node_modules/**" >> sonar-project.properties
+          else
+            echo "No tests folder found - skipping test configuration"
+            echo "sonar.exclusions=${BASE_EXCLUSIONS}" >> sonar-project.properties
+          fi
+
+          echo "Configuration file created"
+
+      - name: SonarQube Scan
+        if: steps.tailscale.outcome == 'success'
+        continue-on-error: true
+        uses: SonarSource/sonarqube-scan-action@v7.0.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}

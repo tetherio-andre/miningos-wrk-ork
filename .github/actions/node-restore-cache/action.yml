@@ -1,0 +1,35 @@
+name: 'Node Restore Cache'
+description: 'Restore Node.js dependencies from cache'
+
+inputs:
+  cache-key:
+    description: 'Cache key from setup-node step'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Cache node modules
+      id: cache-node-modules
+      uses: actions/cache@v4
+      with:
+        path: node_modules
+        key: ${{ inputs.cache-key }}
+        restore-keys: |
+          node-modules-${{ runner.os }}-
+
+    - name: Setup Node.js
+      if: steps.cache-node-modules.outputs.cache-hit != 'true'
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+
+    - name: Install Dependencies
+      if: steps.cache-node-modules.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        if [ -f package-lock.json ]; then
+          npm ci
+        else
+          npm install
+        fi
