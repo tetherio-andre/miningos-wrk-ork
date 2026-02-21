@@ -16,7 +16,7 @@ runs:
         path: node_modules
         key: ${{ inputs.cache-key }}
         restore-keys: |
-          node-modules-${{ runner.os }}-
+          node-modules-${{ runner.os }}-20.x-
 
     - name: Setup Node.js
       if: steps.cache-node-modules.outputs.cache-hit != 'true'
