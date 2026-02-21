@@ -1,3 +1,6 @@
+# CodeQL for orgs that require actions from repos they own (e.g. tetherio-andre).
+# Prereq: Fork github/codeql-action -> tetherio-andre/codeql-action and tag v3.
+
 name: CodeQL Analysis
 
 on:
@@ -17,15 +20,15 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: tetherio-andre/checkout@v6
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: tetherio-andre/codeql-action/init@v3
         with:
           languages: javascript
 
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+        uses: tetherio-andre/codeql-action/autobuild@v3
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: tetherio-andre/codeql-action/analyze@v3

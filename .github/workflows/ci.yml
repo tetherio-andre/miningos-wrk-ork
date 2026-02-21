@@ -1,7 +1,11 @@
-name: PR - Test & Validate (Local)
+# CI workflow for orgs that require all actions from repos they own (e.g. tetherio-andre).
+# Prereq: Fork into your org and tag:
+#   - actions/checkout -> tetherio-andre/checkout (tag v6)
+#   - tailscale/github-action -> tetherio-andre/github-action (tag v4)
+#   - SonarSource/sonarqube-scan-action -> tetherio-andre/sonarqube-scan-action (tag v7.0.0)
+# See setup_base/README-restricted-org.md
 
-# This workflow uses local composite actions stored in .github/actions/
-# Simplified for PUBLIC repositories - no PAT_TOKEN/NPM_TOKEN needed for dependencies
+name: PR - Test & Validate (Local)
 
 on:
   push:
@@ -13,6 +17,10 @@ on:
 
 env:
   NODE_VERSION: '20.x'
+
+# All actions below are from tetherio-andre (required by org policy).
+# Fork and tag: actions/checkout -> checkout@v6, tailscale/github-action -> github-action@v4,
+#               SonarSource/sonarqube-scan-action -> sonarqube-scan-action@v7.0.0
 
 jobs:
   setup:
@@ -26,7 +34,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: tetherio-andre/checkout@v6
         with:
           persist-credentials: true
           ref: ${{ github.event.pull_request.number && format('refs/pull/{0}/head', github.event.pull_request.number) || github.ref }}
@@ -47,7 +55,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: tetherio-andre/checkout@v6
         with:
           persist-credentials: true
           ref: ${{ github.event.pull_request.number && format('refs/pull/{0}/head', github.event.pull_request.number) || github.ref }}
@@ -72,7 +80,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: tetherio-andre/checkout@v6
         with:
           persist-credentials: true
           fetch-depth: 0
@@ -92,7 +100,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: tetherio-andre/checkout@v6
         with:
           persist-credentials: true
           fetch-depth: 0
@@ -120,7 +128,7 @@ jobs:
       - name: Tailscale
         id: tailscale
         if: github.event_name == 'pull_request_target' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-        uses: tailscale/github-action@v4
+        uses: tetherio-andre/github-action@v4
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_CLIENT_SECRET }}
@@ -180,7 +188,7 @@ jobs:
       - name: SonarQube Scan
         if: steps.tailscale.outcome == 'success'
         continue-on-error: true
-        uses: SonarSource/sonarqube-scan-action@v7.0.0
+        uses: tetherio-andre/sonarqube-scan-action@v7.0.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
