@@ -304,7 +304,12 @@ jobs:
       contents: read
 
     steps:
-      - name: Print summary
+      - name: 📥 Checkout for summary
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: 📊 Print summary
         env:
           R_GITLEAKS: ${{ needs.gitleaks.result || 'skipped' }}
           R_SETUP: ${{ needs.setup.result || 'skipped' }}
@@ -312,14 +317,24 @@ jobs:
           R_LINT: ${{ needs.lint.result || 'skipped' }}
           R_TEST: ${{ needs.test-and-sonarqube.result || 'skipped' }}
         run: |
-          {
-            echo '## CI Summary'
-            echo ''
-            echo '| Job | Status |'
-            echo '| --- | --- |'
-            echo "| 🔑 Gitleaks | ${R_GITLEAKS:-?} |"
-            echo "| 📦 Setup | ${R_SETUP:-?} |"
-            echo "| 🔐 Supply Chain | ${R_SUPPLY:-?} |"
-            echo "| ✨ Lint | ${R_LINT:-?} |"
-            echo "| 🧪 Test & SonarQube | ${R_TEST:-?} |"
-          } >> "$GITHUB_STEP_SUMMARY"
+          echo "📊 CI Pipeline Summary"
+          echo "======================"
+          echo ""
+          echo "📋 Commit information:"
+          echo "  Commit:  $(git rev-parse HEAD)"
+          echo "  Message: $(git log -1 --pretty=format:'%s')"
+          echo "  Author:  $(git log -1 --pretty=format:'%an <%ae>')"
+          echo "  Date:    $(git log -1 --pretty=format:'%ad' --date=short)"
+          echo ""
+          echo "🎯 Job results:"
+          [ "${R_GITLEAKS}" != "skipped" ] && echo "  🔑 Gitleaks:         ${R_GITLEAKS:-?}"
+          [ "${R_SETUP}" != "skipped" ] && echo "  📦 Setup:            ${R_SETUP:-?}"
+          [ "${R_SUPPLY}" != "skipped" ] && echo "  🔐 Supply Chain:     ${R_SUPPLY:-?}"
+          [ "${R_LINT}" != "skipped" ] && echo "  ✨ Lint:             ${R_LINT:-?}"
+          [ "${R_TEST}" != "skipped" ] && echo "  🧪 Test & SonarQube: ${R_TEST:-?}"
+          echo ""
+          echo "🔧 Pipeline:"
+          echo "  ✅ Dependency review (PR only)"
+          echo "  ✅ Secret scan (PR only, Gitleaks)"
+          echo "  ✅ Lockfile check, npm audit, lint, tests"
+          echo "  ✅ SonarQube (push to main or manual run)"
