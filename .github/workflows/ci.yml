@@ -4,6 +4,11 @@ name: PR - Test & Validate (Local)
 # Simplified for PUBLIC repositories - no PAT_TOKEN/NPM_TOKEN needed for dependencies
 # Secret scanning: use GitHub's built-in secret scanning (Security tab), see https://docs.github.com/en/code-security/concepts/secret-security/about-secret-scanning
 # Aligned with moria/miningos (Node.js workers + optional TS/app-ui) and Node/TS best practices
+#
+# When jobs run (avoid duplicate runs on same code):
+#   PR only:     dependency-review, gitleaks (review/scan PR changes only)
+#   Every run:   setup, supply-chain, lint (PR + push), test-and-sonarqube (tests; no SonarQube on PR)
+#   Main only:   Tailscale + SonarQube (push to main or workflow_dispatch) — SAST once after merge
 
 on:
   push:
@@ -224,7 +229,7 @@ jobs:
 
       - name: Tailscale
         id: tailscale
-        if: github.event_name == 'pull_request_target' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
         uses: tailscale/github-action@v4
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
@@ -300,12 +305,21 @@ jobs:
 
     steps:
       - name: Print summary
+        env:
+          R_GITLEAKS: ${{ needs.gitleaks.result || 'skipped' }}
+          R_SETUP: ${{ needs.setup.result || 'skipped' }}
+          R_SUPPLY: ${{ needs.supply-chain.result || 'skipped' }}
+          R_LINT: ${{ needs.lint.result || 'skipped' }}
+          R_TEST: ${{ needs.test-and-sonarqube.result || 'skipped' }}
         run: |
-          echo "## CI Summary" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Job | Status |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|-----|--------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| 🔑 Gitleaks | ${{ needs.gitleaks.result }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| 📦 Setup | ${{ needs.setup.result }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| 🔐 Supply Chain | ${{ needs.supply-chain.result }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| ✨ Lint | ${{ needs.lint.result }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| 🧪 Test & SonarQube | ${{ needs.test-and-sonarqube.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo '## CI Summary'
+            echo ''
+            echo '| Job | Status |'
+            echo '| --- | --- |'
+            echo "| 🔑 Gitleaks | ${R_GITLEAKS:-?} |"
+            echo "| 📦 Setup | ${R_SETUP:-?} |"
+            echo "| 🔐 Supply Chain | ${R_SUPPLY:-?} |"
+            echo "| ✨ Lint | ${R_LINT:-?} |"
+            echo "| 🧪 Test & SonarQube | ${R_TEST:-?} |"
+          } >> "$GITHUB_STEP_SUMMARY"
