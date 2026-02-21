@@ -1,15 +1,5 @@
 name: PR - Test & Validate (Local)
 
-# This workflow uses local composite actions stored in .github/actions/
-# Simplified for PUBLIC repositories - no PAT_TOKEN/NPM_TOKEN needed for dependencies
-# Secret scanning: use GitHub's built-in secret scanning (Security tab), see https://docs.github.com/en/code-security/concepts/secret-security/about-secret-scanning
-# Aligned with moria/miningos (Node.js workers + optional TS/app-ui) and Node/TS best practices
-#
-# When jobs run (avoid duplicate runs on same code):
-#   PR only:     dependency-review, gitleaks (review/scan PR changes only)
-#   Every run:   setup, supply-chain, lint (PR + push), test-and-sonarqube (tests; no SonarQube on PR)
-#   Main only:   Tailscale + SonarQube (push to main or workflow_dispatch) — SAST once after merge
-
 on:
   push:
     branches: [main, staging, dev, develop]
@@ -317,24 +307,25 @@ jobs:
           R_LINT: ${{ needs.lint.result || 'skipped' }}
           R_TEST: ${{ needs.test-and-sonarqube.result || 'skipped' }}
         run: |
-          echo "📊 CI Pipeline Summary"
-          echo "======================"
-          echo ""
-          echo "📋 Commit information:"
-          echo "  Commit:  $(git rev-parse HEAD)"
-          echo "  Message: $(git log -1 --pretty=format:'%s')"
-          echo "  Author:  $(git log -1 --pretty=format:'%an <%ae>')"
-          echo "  Date:    $(git log -1 --pretty=format:'%ad' --date=short)"
-          echo ""
-          echo "🎯 Job results:"
-          [ "${R_GITLEAKS}" != "skipped" ] && echo "  🔑 Gitleaks:         ${R_GITLEAKS:-?}"
-          [ "${R_SETUP}" != "skipped" ] && echo "  📦 Setup:            ${R_SETUP:-?}"
-          [ "${R_SUPPLY}" != "skipped" ] && echo "  🔐 Supply Chain:     ${R_SUPPLY:-?}"
-          [ "${R_LINT}" != "skipped" ] && echo "  ✨ Lint:             ${R_LINT:-?}"
-          [ "${R_TEST}" != "skipped" ] && echo "  🧪 Test & SonarQube: ${R_TEST:-?}"
-          echo ""
-          echo "🔧 Pipeline:"
-          echo "  ✅ Dependency review (PR only)"
-          echo "  ✅ Secret scan (PR only, Gitleaks)"
-          echo "  ✅ Lockfile check, npm audit, lint, tests"
-          echo "  ✅ SonarQube (push to main or manual run)"
+          {
+            echo "## 📊 CI Pipeline Summary"
+            echo ""
+            echo "### 📋 Commit information"
+            echo "- **Commit:** $(git rev-parse HEAD)"
+            echo "- **Message:** $(git log -1 --pretty=format:'%s')"
+            echo "- **Author:** $(git log -1 --pretty=format:'%an <%ae>')"
+            echo "- **Date:** $(git log -1 --pretty=format:'%ad' --date=short)"
+            echo ""
+            echo "### 🎯 Job results"
+            [ "${R_GITLEAKS}" != "skipped" ] && echo "- 🔑 Gitleaks: ${R_GITLEAKS:-?}"
+            [ "${R_SETUP}" != "skipped" ] && echo "- 📦 Setup: ${R_SETUP:-?}"
+            [ "${R_SUPPLY}" != "skipped" ] && echo "- 🔐 Supply Chain: ${R_SUPPLY:-?}"
+            [ "${R_LINT}" != "skipped" ] && echo "- ✨ Lint: ${R_LINT:-?}"
+            [ "${R_TEST}" != "skipped" ] && echo "- 🧪 Test & SonarQube: ${R_TEST:-?}"
+            echo ""
+            echo "### 🔧 Pipeline"
+            echo "- ✅ Dependency review (PR only)"
+            echo "- ✅ Secret scan (PR only, Gitleaks)"
+            echo "- ✅ Lockfile check, npm audit, lint, tests"
+            echo "- ✅ SonarQube (push to main or manual run)"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
