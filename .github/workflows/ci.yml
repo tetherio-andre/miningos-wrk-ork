@@ -1,4 +1,5 @@
 # Same as ci.yml; use standard actions (e.g. for tetherio-andre if org allows them).
+# Secret scanning: use GitHub's built-in secret scanning (Security tab), see https://docs.github.com/en/code-security/concepts/secret-security/about-secret-scanning
 
 name: PR - Test & Validate (Local)
 
@@ -61,25 +62,6 @@ jobs:
         run: |
           echo "Running linting..."
           npm run lint --if-present || echo "::warning::Linting failed but continuing workflow"
-
-  git-secrets:
-    name: Git Secrets Scan
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: true
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.number && format('refs/pull/{0}/head', github.event.pull_request.number) || github.ref }}
-
-      - name: Run Git Secrets Scan
-        uses: ./.github/actions/git-secrets
-        continue-on-error: true
 
   test-and-sonarqube:
     name: Test Coverage & SonarQube Analysis

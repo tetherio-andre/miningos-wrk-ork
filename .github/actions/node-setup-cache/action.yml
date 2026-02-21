@@ -33,15 +33,10 @@ runs:
       run: |
         NODE_VERSION="${{ inputs.node-version }}"
         BASE_KEY="node-modules-${{ runner.os }}-${NODE_VERSION}"
+        # Stable key per deps so downstream jobs and future runs get cache hits
         HASH_KEY="${BASE_KEY}-${{ hashFiles('package-lock.json', 'package.json') }}"
-        TIMESTAMP=$(date +%s)
-
-        # Generate a unique key for this run
-        echo "cache-key=${HASH_KEY}-${TIMESTAMP}" >> $GITHUB_OUTPUT
-        # Store the base key for restore-keys
+        echo "cache-key=${HASH_KEY}" >> $GITHUB_OUTPUT
         echo "base-key=${BASE_KEY}" >> $GITHUB_OUTPUT
-        # Store hash key for outputs
-        echo "hash-key=${HASH_KEY}" >> $GITHUB_OUTPUT
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -75,5 +70,4 @@ runs:
         path: node_modules
         key: ${{ steps.cache-keys.outputs.cache-key }}
         restore-keys: |
-          ${{ steps.cache-keys.outputs.hash-key }}-
           ${{ steps.cache-keys.outputs.base-key }}-

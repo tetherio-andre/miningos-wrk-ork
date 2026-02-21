@@ -8,10 +8,9 @@ This repository includes several security-focused workflows to ensure code quali
 - Uses local composite actions for consistent setup
 - Includes dependency caching for faster builds
 
-## 2. Secrets Scanning (git-secrets action)
-- Runs as part of the CI workflow
-- Uses git-secrets to detect committed credentials
-- Prevents sensitive information from entering the repository
+## 2. Secret scanning
+- Use [GitHub secret scanning](https://docs.github.com/en/code-security/concepts/secret-security/about-secret-scanning) (repository Security tab).
+- Scans entire Git history, branches, issues, and PRs for exposed credentials; alerts appear on the Security tab.
 
 ## 3. CodeQL Analysis (codeql-analysis.yml)
 - Runs nightly at 2 AM UTC
