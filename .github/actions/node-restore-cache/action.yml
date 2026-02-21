@@ -9,9 +9,10 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Cache node modules
+    # Restore-only: avoids "another job may be creating this cache" when setup and downstream jobs race on save
+    - name: Restore node modules cache
       id: cache-node-modules
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: node_modules
         key: ${{ inputs.cache-key }}
